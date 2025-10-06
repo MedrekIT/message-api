@@ -18,6 +18,7 @@ import (
 func main() {
 	godotenv.Load()
 
+	secretJWT := os.Getenv("SECRET_JWT")
 	dbURL := os.Getenv("DB_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -26,8 +27,9 @@ func main() {
 	defer db.Close()
 
 	apiCfg := api.ApiConfig{
-		Port: fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")),
-		Db:   database.New(db),
+		Port:      fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")),
+		Db:        database.New(db),
+		SecretJWT: secretJWT,
 	}
 
 	server := &http.Server{

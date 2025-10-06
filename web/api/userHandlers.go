@@ -13,14 +13,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type authRes struct {
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Login        string    `json:"login"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
+}
+
 func (apiCfg *ApiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
-	type successRes struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Login     string    `json:"login"`
-		Email     string    `json:"email"`
-	}
 	type loginReq struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -40,7 +43,7 @@ func (apiCfg *ApiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := apiCfg.Db.GetUserByEmail(r.Context(), reqData.Email)
 	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "User with given e-mail does not exist", err)
+		errorResponse(w, http.StatusUnauthorized, "Invalid credentials", err)
 		return
 	}
 
@@ -49,23 +52,36 @@ func (apiCfg *ApiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	successResponse(w, 201, successRes{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Login:     user.Login,
-		Email:     user.Email,
+	newJWT, err := auth.CreateJWT(user.ID, apiCfg.SecretJWT, time.Hour)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", err)
+		return
+	}
+
+	refreshTokenString := auth.CreateRefreshToken()
+	newRefreshTokenParams := database.CreateRefreshTokenParams{
+		Token:     refreshTokenString,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	}
+	refreshToken, err := apiCfg.Db.CreateRefreshToken(r.Context(), newRefreshTokenParams)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", fmt.Errorf("error while adding refresh token to the database - %w\n", err))
+		return
+	}
+
+	successResponse(w, 200, authRes{
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Login:        user.Login,
+		Email:        user.Email,
+		Token:        newJWT,
+		RefreshToken: refreshToken.Token,
 	})
 }
 
 func (apiCfg *ApiConfig) addUserHandler(w http.ResponseWriter, r *http.Request) {
-	type successRes struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Login     string    `json:"login"`
-		Email     string    `json:"email"`
-	}
 	type registerReq struct {
 		Login    string `json:"login"`
 		Email    string `json:"email"`
@@ -102,11 +118,31 @@ func (apiCfg *ApiConfig) addUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	successResponse(w, 201, successRes{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Login:     user.Login,
-		Email:     user.Email,
+	newJWT, err := auth.CreateJWT(user.ID, apiCfg.SecretJWT, time.Hour)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", err)
+		return
+	}
+
+	refreshTokenString := auth.CreateRefreshToken()
+	newRefreshTokenParams := database.CreateRefreshTokenParams{
+		Token:     refreshTokenString,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	}
+	refreshToken, err := apiCfg.Db.CreateRefreshToken(r.Context(), newRefreshTokenParams)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", fmt.Errorf("error while adding refresh token to the database - %w\n", err))
+		return
+	}
+
+	successResponse(w, 201, authRes{
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Login:        user.Login,
+		Email:        user.Email,
+		Token:        newJWT,
+		RefreshToken: refreshToken.Token,
 	})
 }

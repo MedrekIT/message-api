@@ -7,8 +7,9 @@ import (
 )
 
 type ApiConfig struct {
-	Db   *database.Queries
-	Port string
+	Db        *database.Queries
+	Port      string
+	SecretJWT string
 }
 
 func Routes(apiCfg *ApiConfig) http.Handler {
@@ -20,6 +21,8 @@ func Routes(apiCfg *ApiConfig) http.Handler {
 
 	mu.HandleFunc("POST /api/login", apiCfg.loginHandler)
 	mu.HandleFunc("POST /api/users", apiCfg.addUserHandler)
+	mu.HandleFunc("POST /api/refresh", apiCfg.refreshHandler)
+	mu.HandleFunc("POST /api/revoke", apiCfg.revokeHandler)
 
 	return mu
 }
