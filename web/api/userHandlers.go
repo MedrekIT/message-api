@@ -23,6 +23,47 @@ type authRes struct {
 	RefreshToken string    `json:"refresh_token"`
 }
 
+func (apiCfg *ApiConfig) createTokens(r *http.Request, user database.User) (string, database.RefreshToken, error) {
+	newJWT, err := auth.CreateJWT(user.ID, apiCfg.SecretJWT, time.Hour)
+	if err != nil {
+		return "", database.RefreshToken{}, err
+	}
+
+	refreshTokenString := auth.CreateRefreshToken()
+	newRefreshTokenParams := database.CreateRefreshTokenParams{
+		Token:     refreshTokenString,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	}
+	refreshToken, err := apiCfg.Db.CreateRefreshToken(r.Context(), newRefreshTokenParams)
+	if err != nil {
+		return "", database.RefreshToken{}, fmt.Errorf("error while adding refresh token to the database - %w\n", err)
+	}
+
+	return newJWT, refreshToken, nil
+}
+
+func (apiCfg *ApiConfig) getUsersHandler(w http.ResponseWriter, r *http.Request) {
+	type usersRes struct {
+		Login string `json:"login"`
+	}
+
+	users, err := apiCfg.Db.GetUsers(r.Context())
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", fmt.Errorf("error while getting users from the database - %w\n", err))
+		return
+	}
+
+	var allUsers []usersRes
+	for _, user := range users {
+		allUsers = append(allUsers, usersRes{
+			Login: user.Login,
+		})
+	}
+
+	successResponse(w, 200, allUsers)
+}
+
 func (apiCfg *ApiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	type loginReq struct {
 		Email    string `json:"email"`
@@ -52,21 +93,9 @@ func (apiCfg *ApiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newJWT, err := auth.CreateJWT(user.ID, apiCfg.SecretJWT, time.Hour)
+	newJWT, refreshToken, err := apiCfg.createTokens(r, user)
 	if err != nil {
 		errorResponse(w, http.StatusInternalServerError, "Something went wrong", err)
-		return
-	}
-
-	refreshTokenString := auth.CreateRefreshToken()
-	newRefreshTokenParams := database.CreateRefreshTokenParams{
-		Token:     refreshTokenString,
-		UserID:    user.ID,
-		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
-	}
-	refreshToken, err := apiCfg.Db.CreateRefreshToken(r.Context(), newRefreshTokenParams)
-	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, "Something went wrong", fmt.Errorf("error while adding refresh token to the database - %w\n", err))
 		return
 	}
 
@@ -118,21 +147,9 @@ func (apiCfg *ApiConfig) addUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	newJWT, err := auth.CreateJWT(user.ID, apiCfg.SecretJWT, time.Hour)
+	newJWT, refreshToken, err := apiCfg.createTokens(r, user)
 	if err != nil {
 		errorResponse(w, http.StatusInternalServerError, "Something went wrong", err)
-		return
-	}
-
-	refreshTokenString := auth.CreateRefreshToken()
-	newRefreshTokenParams := database.CreateRefreshTokenParams{
-		Token:     refreshTokenString,
-		UserID:    user.ID,
-		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
-	}
-	refreshToken, err := apiCfg.Db.CreateRefreshToken(r.Context(), newRefreshTokenParams)
-	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, "Something went wrong", fmt.Errorf("error while adding refresh token to the database - %w\n", err))
 		return
 	}
 

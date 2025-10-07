@@ -15,12 +15,16 @@ type ApiConfig struct {
 func Routes(apiCfg *ApiConfig) http.Handler {
 	mu := http.NewServeMux()
 
-	mu.Handle("/", http.FileServer(http.Dir("./web/static")))
-	//mu.HandleFunc("GET /api/users", apiCfg.getUsersHandler)
+	mu.Handle("GET /", http.FileServer(http.Dir("./web/static")))
+	mu.HandleFunc("GET /api/users", apiCfg.getUsersHandler)
 	//mu.HandleFunc("GET /api/users/{userID}", apiCfg.getUserHandler)
+	mu.HandleFunc("GET /api/friendships", apiCfg.getFriendsHandler)
+	//mu.HandleFunc("GET /api/friendships/requests", apiCfg.getFriendRequestsHandler)
 
 	mu.HandleFunc("POST /api/login", apiCfg.loginHandler)
 	mu.HandleFunc("POST /api/users", apiCfg.addUserHandler)
+	mu.HandleFunc("POST /api/friendships/{senderLogin}", apiCfg.acceptFriendHandler)
+	mu.HandleFunc("POST /api/friendships/requests/{receiverLogin}", apiCfg.requestFriendHandler)
 	mu.HandleFunc("POST /api/refresh", apiCfg.refreshHandler)
 	mu.HandleFunc("POST /api/revoke", apiCfg.revokeHandler)
 
