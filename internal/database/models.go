@@ -152,6 +152,14 @@ type Group struct {
 	GroupType GroupType
 }
 
+type InvitationLink struct {
+	Token     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	OfGroupID uuid.UUID
+	ExpiresAt time.Time
+}
+
 type RefreshToken struct {
 	Token     string
 	CreatedAt time.Time

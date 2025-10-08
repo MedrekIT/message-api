@@ -20,3 +20,7 @@ AND revoked_at IS NULL;
 UPDATE refresh_tokens
 SET revoked_at = NOW(), updated_at = NOW()
 WHERE token = $1;
+
+-- name: ClearRefreshTokens :exec
+DELETE FROM refresh_tokens
+WHERE revoked_at < NOW() OR expires_at < NOW();
