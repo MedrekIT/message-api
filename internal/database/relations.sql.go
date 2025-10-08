@@ -29,29 +29,26 @@ func (q *Queries) AcceptFriendship(ctx context.Context, arg AcceptFriendshipPara
 }
 
 const createBlock = `-- name: CreateBlock :one
-INSERT INTO relations (id, created_at, updated_at, user_id, receiver_id, relationship)
+INSERT INTO relations (created_at, updated_at, user_id, receiver_id, relationship)
 VALUES (
+  NOW(),
+  NOW(),
   $1,
-  NOW(),
-  NOW(),
   $2,
-  $3,
   'blocked'
 )
-RETURNING id, created_at, updated_at, user_id, receiver_id, relationship
+RETURNING created_at, updated_at, user_id, receiver_id, relationship
 `
 
 type CreateBlockParams struct {
-	ID         uuid.UUID
 	UserID     uuid.UUID
 	ReceiverID uuid.UUID
 }
 
 func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (Relation, error) {
-	row := q.db.QueryRowContext(ctx, createBlock, arg.ID, arg.UserID, arg.ReceiverID)
+	row := q.db.QueryRowContext(ctx, createBlock, arg.UserID, arg.ReceiverID)
 	var i Relation
 	err := row.Scan(
-		&i.ID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UserID,
@@ -62,29 +59,26 @@ func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (Relat
 }
 
 const createFriendship = `-- name: CreateFriendship :one
-INSERT INTO relations (id, created_at, updated_at, user_id, receiver_id, relationship)
+INSERT INTO relations (created_at, updated_at, user_id, receiver_id, relationship)
 VALUES (
+  NOW(),
+  NOW(),
   $1,
-  NOW(),
-  NOW(),
   $2,
-  $3,
   'pending'
 )
-RETURNING id, created_at, updated_at, user_id, receiver_id, relationship
+RETURNING created_at, updated_at, user_id, receiver_id, relationship
 `
 
 type CreateFriendshipParams struct {
-	ID         uuid.UUID
 	UserID     uuid.UUID
 	ReceiverID uuid.UUID
 }
 
 func (q *Queries) CreateFriendship(ctx context.Context, arg CreateFriendshipParams) (Relation, error) {
-	row := q.db.QueryRowContext(ctx, createFriendship, arg.ID, arg.UserID, arg.ReceiverID)
+	row := q.db.QueryRowContext(ctx, createFriendship, arg.UserID, arg.ReceiverID)
 	var i Relation
 	err := row.Scan(
-		&i.ID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UserID,
@@ -114,7 +108,7 @@ DELETE FROM relations
 WHERE (user_id = $1 OR receiver_id = $1)
 AND (user_id = $2 OR receiver_id = $2)
 AND relationship = 'friends'
-RETURNING id, created_at, updated_at, user_id, receiver_id, relationship
+RETURNING created_at, updated_at, user_id, receiver_id, relationship
 `
 
 type DeleteFriendParams struct {
@@ -126,7 +120,6 @@ func (q *Queries) DeleteFriend(ctx context.Context, arg DeleteFriendParams) (Rel
 	row := q.db.QueryRowContext(ctx, deleteFriend, arg.UserID, arg.UserID_2)
 	var i Relation
 	err := row.Scan(
-		&i.ID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UserID,
@@ -137,20 +130,19 @@ func (q *Queries) DeleteFriend(ctx context.Context, arg DeleteFriendParams) (Rel
 }
 
 const getBlocks = `-- name: GetBlocks :many
-SELECT relations.id, relations.created_at, relations.updated_at, user_id, receiver_id, relationship, users.id, users.created_at, users.updated_at, login, password, email, users.login AS user_login
+SELECT relations.created_at, relations.updated_at, user_id, receiver_id, relationship, id, users.created_at, users.updated_at, login, password, email, users.login AS user_login
 FROM relations INNER JOIN users
 ON relations.receiver_id = users.id
 WHERE (relations.user_id = $1) AND relations.relationship = 'blocked'
 `
 
 type GetBlocksRow struct {
-	ID           uuid.UUID
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	UserID       uuid.UUID
 	ReceiverID   uuid.UUID
 	Relationship Relationship
-	ID_2         uuid.UUID
+	ID           uuid.UUID
 	CreatedAt_2  time.Time
 	UpdatedAt_2  time.Time
 	Login        string
@@ -169,13 +161,12 @@ func (q *Queries) GetBlocks(ctx context.Context, userID uuid.UUID) ([]GetBlocksR
 	for rows.Next() {
 		var i GetBlocksRow
 		if err := rows.Scan(
-			&i.ID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.ReceiverID,
 			&i.Relationship,
-			&i.ID_2,
+			&i.ID,
 			&i.CreatedAt_2,
 			&i.UpdatedAt_2,
 			&i.Login,
@@ -197,7 +188,7 @@ func (q *Queries) GetBlocks(ctx context.Context, userID uuid.UUID) ([]GetBlocksR
 }
 
 const getFriends = `-- name: GetFriends :many
-SELECT relations.id, relations.created_at, relations.updated_at, user_id, receiver_id, relationship, users.id, users.created_at, users.updated_at, login, password, email, users.login AS user_login
+SELECT relations.created_at, relations.updated_at, user_id, receiver_id, relationship, id, users.created_at, users.updated_at, login, password, email, users.login AS user_login
 FROM relations INNER JOIN users
 ON (relations.user_id = users.id AND relations.receiver_id = $1)
 OR (relations.receiver_id = users.id AND relations.user_id = $1)
@@ -205,13 +196,12 @@ WHERE relations.relationship = 'friends'
 `
 
 type GetFriendsRow struct {
-	ID           uuid.UUID
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	UserID       uuid.UUID
 	ReceiverID   uuid.UUID
 	Relationship Relationship
-	ID_2         uuid.UUID
+	ID           uuid.UUID
 	CreatedAt_2  time.Time
 	UpdatedAt_2  time.Time
 	Login        string
@@ -230,13 +220,12 @@ func (q *Queries) GetFriends(ctx context.Context, receiverID uuid.UUID) ([]GetFr
 	for rows.Next() {
 		var i GetFriendsRow
 		if err := rows.Scan(
-			&i.ID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.ReceiverID,
 			&i.Relationship,
-			&i.ID_2,
+			&i.ID,
 			&i.CreatedAt_2,
 			&i.UpdatedAt_2,
 			&i.Login,

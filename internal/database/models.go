@@ -13,6 +13,93 @@ import (
 	"github.com/google/uuid"
 )
 
+type GroupType string
+
+const (
+	GroupTypePublic     GroupType = "public"
+	GroupTypeInviteOnly GroupType = "invite_only"
+	GroupTypePrivate    GroupType = "private"
+)
+
+func (e *GroupType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = GroupType(s)
+	case string:
+		*e = GroupType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for GroupType: %T", src)
+	}
+	return nil
+}
+
+type NullGroupType struct {
+	GroupType GroupType
+	Valid     bool // Valid is true if GroupType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullGroupType) Scan(value interface{}) error {
+	if value == nil {
+		ns.GroupType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.GroupType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullGroupType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.GroupType), nil
+}
+
+type MemberType string
+
+const (
+	MemberTypeMember    MemberType = "member"
+	MemberTypeModerator MemberType = "moderator"
+	MemberTypeAdmin     MemberType = "admin"
+	MemberTypeBlocked   MemberType = "blocked"
+)
+
+func (e *MemberType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MemberType(s)
+	case string:
+		*e = MemberType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MemberType: %T", src)
+	}
+	return nil
+}
+
+type NullMemberType struct {
+	MemberType MemberType
+	Valid      bool // Valid is true if MemberType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMemberType) Scan(value interface{}) error {
+	if value == nil {
+		ns.MemberType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MemberType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMemberType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MemberType), nil
+}
+
 type Relationship string
 
 const (
@@ -56,6 +143,15 @@ func (ns NullRelationship) Value() (driver.Value, error) {
 	return string(ns.Relationship), nil
 }
 
+type Group struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Name      string
+	CreatorID uuid.UUID
+	GroupType GroupType
+}
+
 type RefreshToken struct {
 	Token     string
 	CreatedAt time.Time
@@ -66,7 +162,6 @@ type RefreshToken struct {
 }
 
 type Relation struct {
-	ID           uuid.UUID
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	UserID       uuid.UUID
@@ -81,4 +176,12 @@ type User struct {
 	Login     string
 	Password  string
 	Email     string
+}
+
+type UsersGroup struct {
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	UserID     uuid.UUID
+	OfGroupID  uuid.UUID
+	MemberType MemberType
 }

@@ -1,23 +1,21 @@
 -- name: CreateFriendship :one
-INSERT INTO relations (id, created_at, updated_at, user_id, receiver_id, relationship)
+INSERT INTO relations (created_at, updated_at, user_id, receiver_id, relationship)
 VALUES (
+  NOW(),
+  NOW(),
   $1,
-  NOW(),
-  NOW(),
   $2,
-  $3,
   'pending'
 )
 RETURNING *;
 
 -- name: CreateBlock :one
-INSERT INTO relations (id, created_at, updated_at, user_id, receiver_id, relationship)
+INSERT INTO relations (created_at, updated_at, user_id, receiver_id, relationship)
 VALUES (
+  NOW(),
+  NOW(),
   $1,
-  NOW(),
-  NOW(),
   $2,
-  $3,
   'blocked'
 )
 RETURNING *;
