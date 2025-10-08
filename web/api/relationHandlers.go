@@ -6,8 +6,6 @@ import (
 
 	"github.com/MedrekIT/message-api/internal/auth"
 	"github.com/MedrekIT/message-api/internal/database"
-
-	"github.com/google/uuid"
 )
 
 func (apiCfg *ApiConfig) getFriendsHandler(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +86,6 @@ func (apiCfg *ApiConfig) requestFriendHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	newFriendshipParams := database.CreateFriendshipParams{
-		ID:         uuid.New(),
 		UserID:     user.ID,
 		ReceiverID: receiver.ID,
 	}
@@ -99,7 +96,6 @@ func (apiCfg *ApiConfig) requestFriendHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	successResponse(w, http.StatusCreated, addFriendRes{
-		RelationID: relation.ID.String(),
 		CreatedAt:  relation.CreatedAt,
 		UpdatedAt:  relation.UpdatedAt,
 		UserID:     relation.UserID.String(),
