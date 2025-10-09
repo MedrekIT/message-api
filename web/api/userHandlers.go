@@ -33,7 +33,7 @@ func (apiCfg *ApiConfig) createTokens(r *http.Request, user database.User) (stri
 	newRefreshTokenParams := database.CreateRefreshTokenParams{
 		Token:     refreshTokenString,
 		UserID:    user.ID,
-		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
 	}
 	refreshToken, err := apiCfg.Db.CreateRefreshToken(r.Context(), newRefreshTokenParams)
 	if err != nil {
