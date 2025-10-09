@@ -35,3 +35,7 @@ WHERE id = $1;
 UPDATE groups
 SET group_type = $2, updated_at = NOW()
 WHERE id = $1;
+
+-- name: DeleteGroup :exec
+DELETE FROM groups
+WHERE id = $1;
