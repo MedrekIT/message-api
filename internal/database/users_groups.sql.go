@@ -120,7 +120,7 @@ const getMembers = `-- name: GetMembers :many
 SELECT users_groups.created_at, users_groups.updated_at, user_id, of_group_id, member_type, id, users.created_at, users.updated_at, login, password, email, users.login AS user_login
 FROM users_groups INNER JOIN users
 ON users_groups.user_id = users.id
-WHERE users_groups.of_group_id = $1
+WHERE users_groups.of_group_id = $1 AND member_type != 'blocked'
 `
 
 type GetMembersRow struct {

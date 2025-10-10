@@ -52,3 +52,21 @@ func (q *Queries) CreateInvitationLink(ctx context.Context, arg CreateInvitation
 	)
 	return i, err
 }
+
+const getInvitation = `-- name: GetInvitation :one
+SELECT token, created_at, updated_at, of_group_id, expires_at FROM invitation_links
+WHERE token = $1 AND expires_at > NOW()
+`
+
+func (q *Queries) GetInvitation(ctx context.Context, token string) (InvitationLink, error) {
+	row := q.db.QueryRowContext(ctx, getInvitation, token)
+	var i InvitationLink
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OfGroupID,
+		&i.ExpiresAt,
+	)
+	return i, err
+}

@@ -80,7 +80,7 @@ func (q *Queries) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 
 const getGroupByID = `-- name: GetGroupByID :one
 SELECT id, created_at, updated_at, name, creator_id, group_type FROM groups
-WHERE id = $1
+WHERE groups.id = $1
 `
 
 func (q *Queries) GetGroupByID(ctx context.Context, id uuid.UUID) (Group, error) {
@@ -97,29 +97,10 @@ func (q *Queries) GetGroupByID(ctx context.Context, id uuid.UUID) (Group, error)
 	return i, err
 }
 
-const getGroupByName = `-- name: GetGroupByName :one
-SELECT id, created_at, updated_at, name, creator_id, group_type FROM groups
-WHERE name = $1
-`
-
-func (q *Queries) GetGroupByName(ctx context.Context, name string) (Group, error) {
-	row := q.db.QueryRowContext(ctx, getGroupByName, name)
-	var i Group
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Name,
-		&i.CreatorID,
-		&i.GroupType,
-	)
-	return i, err
-}
-
 const getPublicGroups = `-- name: GetPublicGroups :many
-SELECT id, groups.created_at, groups.updated_at, name, creator_id, group_type, users_groups.created_at, users_groups.updated_at, user_id, of_group_id, member_type, COUNT(users_groups.user_id) AS users_count
+SELECT id, groups.created_at, groups.updated_at, name, creator_id, group_type, users_groups.created_at, users_groups.updated_at, user_id, of_group_id, member_type, COUNT(users_groups.*) AS users_count
 FROM groups INNER JOIN users_groups
-ON groups.id = users_groups.group_id
+ON groups.id = users_groups.of_group_id
 WHERE groups.group_type = 'public' AND groups.name LIKE '%' || $1 || '%'
 GROUP BY groups.id
 ORDER BY users_count DESC

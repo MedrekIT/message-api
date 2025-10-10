@@ -9,6 +9,10 @@ VALUES (
 )
 RETURNING *;
 
+-- name: GetInvitation :one
+SELECT * FROM invitation_links
+WHERE token = $1 AND expires_at > NOW();
+
 -- name: ClearInvitationLinks :exec
 DELETE FROM invitation_links
 WHERE expires_at < NOW();

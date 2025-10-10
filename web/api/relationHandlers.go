@@ -6,6 +6,7 @@ import (
 
 	"github.com/MedrekIT/message-api/internal/auth"
 	"github.com/MedrekIT/message-api/internal/database"
+	"github.com/google/uuid"
 )
 
 func (apiCfg *ApiConfig) getFriendsHandler(w http.ResponseWriter, r *http.Request) {
@@ -30,8 +31,12 @@ func (apiCfg *ApiConfig) acceptFriendHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	senderLogin := r.PathValue("senderLogin")
-	sender, err := apiCfg.Db.GetUserByLogin(r.Context(), senderLogin)
+	senderID, err := uuid.Parse(r.PathValue("senderID"))
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid ID", err)
+		return
+	}
+	sender, err := apiCfg.Db.GetUserByID(r.Context(), senderID)
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, "User not found", err)
 		return
@@ -78,8 +83,12 @@ func (apiCfg *ApiConfig) requestFriendHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	receiverLogin := r.PathValue("receiverLogin")
-	receiver, err := apiCfg.Db.GetUserByLogin(r.Context(), receiverLogin)
+	receiverID, err := uuid.Parse(r.PathValue("receiverID"))
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid ID", err)
+		return
+	}
+	receiver, err := apiCfg.Db.GetUserByID(r.Context(), receiverID)
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, "User not found", err)
 		return

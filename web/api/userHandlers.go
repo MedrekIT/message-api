@@ -45,6 +45,7 @@ func (apiCfg *ApiConfig) createTokens(r *http.Request, user database.User) (stri
 
 func (apiCfg *ApiConfig) getUsersHandler(w http.ResponseWriter, r *http.Request) {
 	type usersRes struct {
+		UserID string `json:"user_id"`
 		Login string `json:"login"`
 	}
 
@@ -57,6 +58,7 @@ func (apiCfg *ApiConfig) getUsersHandler(w http.ResponseWriter, r *http.Request)
 	var allUsers []usersRes
 	for _, user := range users {
 		allUsers = append(allUsers, usersRes{
+			UserID: user.ID.String(),
 			Login: user.Login,
 		})
 	}

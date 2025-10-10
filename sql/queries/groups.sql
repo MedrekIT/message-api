@@ -11,20 +11,16 @@ VALUES (
 RETURNING *;
 
 -- name: GetPublicGroups :many
-SELECT *, COUNT(users_groups.user_id) AS users_count
+SELECT *, COUNT(users_groups.*) AS users_count
 FROM groups INNER JOIN users_groups
-ON groups.id = users_groups.group_id
+ON groups.id = users_groups.of_group_id
 WHERE groups.group_type = 'public' AND groups.name LIKE '%' || $1 || '%'
 GROUP BY groups.id
 ORDER BY users_count DESC;
 
 -- name: GetGroupByID :one
 SELECT * FROM groups
-WHERE id = $1;
-
--- name: GetGroupByName :one
-SELECT * FROM groups
-WHERE name = $1;
+WHERE groups.id = $1;
 
 -- name: RenameGroup :exec
 UPDATE groups

@@ -13,6 +13,15 @@ import (
 	"github.com/google/uuid"
 )
 
+type groupRes struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Name      string    `json:"name"`
+	CreatorID uuid.UUID `json:"creator_id"`
+	GroupType string    `json:"group_type"`
+}
+
 func CreateInvitationKey() string {
 	key := make([]byte, 8)
 	rand.Read(key)
@@ -70,7 +79,7 @@ func (apiCfg *ApiConfig) createInvitationHandler(w http.ResponseWriter, r *http.
 	successResponse(w, http.StatusCreated, invitationLink)
 }
 
-func (apiCfg *ApiConfig) createGroupHandler(w http.ResponseWriter, r *http.Request) {
+func (apiCfg *ApiConfig) joinGroupHandler(w http.ResponseWriter, r *http.Request) {
 	type groupRes struct {
 		ID        uuid.UUID `json:"id"`
 		CreatedAt time.Time `json:"created_at"`
@@ -79,6 +88,91 @@ func (apiCfg *ApiConfig) createGroupHandler(w http.ResponseWriter, r *http.Reque
 		CreatorID uuid.UUID `json:"creator_id"`
 		GroupType string    `json:"group_type"`
 	}
+	type joinGroupReq struct {
+		InvitationLink string `json:"invitation_link"` // optional if group is public
+	}
+
+	reqBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid request", err)
+		return
+	}
+
+	var reqData joinGroupReq
+	if err := json.Unmarshal(reqBody, &reqData); err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid request", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, apiCfg.SecretJWT)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	user, err := apiCfg.Db.GetUserByID(r.Context(), userID)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	groupID, err := uuid.Parse(r.PathValue("groupID"))
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, "Invalid group ID", err)
+		return
+	}
+	group, err := apiCfg.Db.GetGroupByID(r.Context(), groupID)
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, "Invalid group ID", err)
+		return
+	}
+
+	if group.GroupType != "public" {
+		var invitation database.InvitationLink
+		if reqData.InvitationLink == "" || group.GroupType == "private" {
+			errorResponse(w, http.StatusUnauthorized, "Unauthorized operation", nil)
+			return
+		} else if reqData.InvitationLink != "" {
+			invitation, err = apiCfg.Db.GetInvitation(r.Context(), reqData.InvitationLink)
+			if err != nil {
+				errorResponse(w, http.StatusBadRequest, "Invalid inviation link", err)
+				return
+			}
+		}
+
+		if reqData.InvitationLink != "" && invitation.OfGroupID != group.ID {
+			errorResponse(w, http.StatusBadRequest, "Invalid inviation link", err)
+			return
+		}
+	}
+
+	newMemberParams := database.AddMemberParams{
+		OfGroupID: group.ID,
+		UserID:    user.ID,
+	}
+	_, err = apiCfg.Db.AddMember(r.Context(), newMemberParams)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", err)
+		return
+	}
+
+	successResponse(w, http.StatusCreated, groupRes{
+		ID:        group.ID,
+		CreatedAt: group.CreatedAt,
+		UpdatedAt: group.UpdatedAt,
+		Name:      group.Name,
+		CreatorID: group.CreatorID,
+		GroupType: string(group.GroupType),
+	})
+}
+
+func (apiCfg *ApiConfig) createGroupHandler(w http.ResponseWriter, r *http.Request) {
 	type createGroupReq struct {
 		Name      string `json:"name"`
 		GroupType string `json:"group_type"` // optional ('public', 'invite_only', 'private') set to 'invite_only' by default
