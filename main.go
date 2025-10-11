@@ -27,9 +27,12 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatalf("\nError opening database connection - %v\n", err)
+		log.Fatalf("Error opening database connection - %v\n", err)
 	}
-	defer db.Close()
+	defer func() {
+		db.Close()
+		log.Println("Database connection closed")
+	}()
 
 	apiCfg := api.ApiConfig{
 		Port:      fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")),
@@ -41,35 +44,53 @@ func main() {
 		Addr:    apiCfg.Port,
 		Handler: api.Routes(&apiCfg),
 	}
-	defer server.Close()
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ticker := time.NewTicker(time.Hour * 12)
-	errorsCounter := 0
 	go func() {
+		ticker := time.NewTicker(time.Hour * 12)
+		defer ticker.Stop()
+		errorsCounter := 0
+
 		for {
 			select {
-			case <-ch:
-				log.Println("Shutting down...")
-				cancel()
 			case <-ctx.Done():
 				log.Println("Cleanup done")
-				log.Println("Server closed")
-				os.Exit(0)
+				return
 			case <-ticker.C:
 				err = automated.DbCleanup(ctx, apiCfg.Db)
 				if err != nil && errorsCounter < 3 {
-					log.Printf("\nError: %v\nRetrying...\n", err)
+					log.Printf("Error: %v\nRetrying...\n", err)
 					errorsCounter++
 				} else if err != nil && errorsCounter >= 3 {
-					log.Fatalf("\nError: %v\n", err)
+					log.Fatalf("Error: %v\n", err)
+				} else {
+					errorsCounter = 0
 				}
 			}
 		}
 	}()
-	log.Printf("Server running and listening on port %s\n", apiCfg.Port[1:])
-	log.Fatal(server.ListenAndServe())
+
+	go func() {
+		log.Printf("Server running and listening on port %s\n", apiCfg.Port[1:])
+		if err := server.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				log.Fatalf("Error: %v\n", err)
+			}
+		}
+	}()
+
+	<-ch
+
+	log.Println("Shutting down...")
+	cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Error while closing server - %v\n", err)
+	}
+	log.Println("Server closed")
 }
