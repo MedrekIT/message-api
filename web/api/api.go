@@ -19,9 +19,9 @@ func Routes(apiCfg *ApiConfig) http.Handler {
 	mu.HandleFunc("GET /api/users", apiCfg.getUsersHandler)
 	// mu.HandleFunc("GET /api/users/{userID}", apiCfg.getUserHandler)
 	// mu.HandleFunc("GET /api/groups", apiCfg.getGroupsHandler)
-	// mu.HandleFunc("GET /api/groups/{groupID}", apiCfg.getGroupHandler)
-	// mu.HandleFunc("GET /api/groups/{groupID}/members", apiCfg.getMembersHandler)
-	// mu.HandleFunc("GET /api/invitations/{invitationToken}", apiCfg.getInvitationGroupHandler)
+	mu.HandleFunc("GET /api/groups/{groupID}", apiCfg.getGroupHandler)
+	mu.HandleFunc("GET /api/groups/{groupID}/members", apiCfg.getMembersHandler)
+	mu.HandleFunc("GET /api/invitations/{invitationToken}", apiCfg.getInvitationGroupHandler)
 	mu.HandleFunc("GET /api/friendships", apiCfg.getFriendsHandler)
 	// mu.HandleFunc("GET /api/friendships/requests", apiCfg.getFriendRequestsHandler)
 

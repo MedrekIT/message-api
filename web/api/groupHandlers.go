@@ -50,7 +50,7 @@ func (apiCfg *ApiConfig) createInvitationHandler(w http.ResponseWriter, r *http.
 
 	groupID, err := uuid.Parse(r.PathValue("groupID"))
 	if err != nil {
-		errorResponse(w, http.StatusNotFound, "Invalid group ID", err)
+		errorResponse(w, http.StatusBadRequest, "Invalid group ID", err)
 		return
 	}
 	group, err := apiCfg.Db.GetGroupByID(r.Context(), groupID)
@@ -79,15 +79,143 @@ func (apiCfg *ApiConfig) createInvitationHandler(w http.ResponseWriter, r *http.
 	successResponse(w, http.StatusCreated, invitationLink)
 }
 
-func (apiCfg *ApiConfig) joinGroupHandler(w http.ResponseWriter, r *http.Request) {
-	type groupRes struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Name      string    `json:"name"`
-		CreatorID uuid.UUID `json:"creator_id"`
-		GroupType string    `json:"group_type"`
+func (apiCfg *ApiConfig) getInvitationGroupHandler(w http.ResponseWriter, r *http.Request) {
+	type groupFromInvitationRes struct {
+		GroupID string `json:"group_id"`
 	}
+
+	invitationToken := r.PathValue("invitationToken")
+	invitationLink, err := apiCfg.Db.GetInvitation(r.Context(), invitationToken)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	successResponse(w, http.StatusOK, groupFromInvitationRes{
+		GroupID: invitationLink.OfGroupID.String(),
+	})
+}
+
+func (apiCfg *ApiConfig) getGroupHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, apiCfg.SecretJWT)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	user, err := apiCfg.Db.GetUserByID(r.Context(), userID)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	groupID, err := uuid.Parse(r.PathValue("groupID"))
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid group ID", err)
+		return
+	}
+	group, err := apiCfg.Db.GetGroupByID(r.Context(), groupID)
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, "Invalid group ID", err)
+		return
+	}
+
+	getMemberParams := database.GetMemberParams{
+		UserID:    user.ID,
+		OfGroupID: group.ID,
+	}
+	_, err = apiCfg.Db.GetMember(r.Context(), getMemberParams)
+	if err != nil && group.GroupType != "public" {
+		errorResponse(w, http.StatusForbidden, "You cannot see that data", err)
+		return
+	}
+
+	successResponse(w, http.StatusOK, groupRes{
+		ID:        group.ID,
+		CreatedAt: group.CreatedAt,
+		UpdatedAt: group.UpdatedAt,
+		Name:      group.Name,
+		CreatorID: group.CreatorID,
+		GroupType: string(group.GroupType),
+	})
+}
+
+func (apiCfg *ApiConfig) getMembersHandler(w http.ResponseWriter, r *http.Request) {
+	type membersInfo struct {
+		UserID     string `json:"user_id"`
+		UserLogin  string `json:"user_login"`
+		MemberType string `json:"member_type"`
+	}
+	type membersRes struct {
+		Members []membersInfo `json:"members"`
+	}
+
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, apiCfg.SecretJWT)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	user, err := apiCfg.Db.GetUserByID(r.Context(), userID)
+	if err != nil {
+		errorResponse(w, http.StatusUnauthorized, "Invalid user ID", err)
+		return
+	}
+
+	groupID, err := uuid.Parse(r.PathValue("groupID"))
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, "Invalid group ID", err)
+		return
+	}
+	group, err := apiCfg.Db.GetGroupByID(r.Context(), groupID)
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, "Invalid group ID", err)
+		return
+	}
+
+	getMemberParams := database.GetMemberParams{
+		UserID:    user.ID,
+		OfGroupID: group.ID,
+	}
+	_, err = apiCfg.Db.GetMember(r.Context(), getMemberParams)
+	if err != nil {
+		errorResponse(w, http.StatusForbidden, "You cannot see that data", err)
+		return
+	}
+
+	members, err := apiCfg.Db.GetMembers(r.Context(), group.ID)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, "Something went wrong", err)
+		return
+	}
+
+	var membersOfGroup []membersInfo
+	for _, member := range members {
+		membersOfGroup = append(membersOfGroup, membersInfo{
+			UserID:     member.UserID.String(),
+			UserLogin:  member.Login,
+			MemberType: string(member.MemberType),
+		})
+	}
+
+	successResponse(w, http.StatusOK, membersRes{
+		Members: membersOfGroup,
+	})
+}
+
+func (apiCfg *ApiConfig) joinGroupHandler(w http.ResponseWriter, r *http.Request) {
 	type joinGroupReq struct {
 		InvitationLink string `json:"invitation_link"` // optional if group is public
 	}
@@ -124,7 +252,7 @@ func (apiCfg *ApiConfig) joinGroupHandler(w http.ResponseWriter, r *http.Request
 
 	groupID, err := uuid.Parse(r.PathValue("groupID"))
 	if err != nil {
-		errorResponse(w, http.StatusNotFound, "Invalid group ID", err)
+		errorResponse(w, http.StatusBadRequest, "Invalid group ID", err)
 		return
 	}
 	group, err := apiCfg.Db.GetGroupByID(r.Context(), groupID)

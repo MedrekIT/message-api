@@ -116,6 +116,29 @@ func (q *Queries) GetBans(ctx context.Context, ofGroupID uuid.UUID) ([]GetBansRo
 	return items, nil
 }
 
+const getMember = `-- name: GetMember :one
+SELECT created_at, updated_at, user_id, of_group_id, member_type FROM users_groups
+WHERE user_id = $1 AND of_group_id = $2 AND member_type != 'blocked'
+`
+
+type GetMemberParams struct {
+	UserID    uuid.UUID
+	OfGroupID uuid.UUID
+}
+
+func (q *Queries) GetMember(ctx context.Context, arg GetMemberParams) (UsersGroup, error) {
+	row := q.db.QueryRowContext(ctx, getMember, arg.UserID, arg.OfGroupID)
+	var i UsersGroup
+	err := row.Scan(
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserID,
+		&i.OfGroupID,
+		&i.MemberType,
+	)
+	return i, err
+}
+
 const getMembers = `-- name: GetMembers :many
 SELECT users_groups.created_at, users_groups.updated_at, user_id, of_group_id, member_type, id, users.created_at, users.updated_at, login, password, email, users.login AS user_login
 FROM users_groups INNER JOIN users

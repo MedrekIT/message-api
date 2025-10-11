@@ -28,3 +28,7 @@ SELECT *, users.login AS user_login
 FROM users_groups INNER JOIN users
 ON users_groups.user_id = users.id
 WHERE users_groups.of_group_id = $1 AND member_type != 'blocked';
+
+-- name: GetMember :one
+SELECT * FROM users_groups
+WHERE user_id = $1 AND of_group_id = $2 AND member_type != 'blocked';
